@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -379,6 +378,16 @@ func defaultMRExternal() mrExternal {
 // A ReconcilerOption configures a Reconciler.
 type ReconcilerOption func(*Reconciler)
 
+// WithClient specifies the timeout duration cumulatively for all the calls happen
+// in the reconciliation function. In case the deadline exceeds, reconciler will
+// still have some time to make the necessary calls to report the error such as
+// status update.
+func WithClient(c client.Client) ReconcilerOption {
+	return func(r *Reconciler) {
+		r.client = c
+	}
+}
+
 // WithTimeout specifies the timeout duration cumulatively for all the calls happen
 // in the reconciliation function. In case the deadline exceeds, reconciler will
 // still have some time to make the necessary calls to report the error such as
@@ -471,15 +480,7 @@ func WithRecorder(er event.Recorder) ReconcilerOption {
 // Reconciler reconciles with a dummy, no-op 'external system' by default;
 // callers should supply an ExternalConnector that returns an ExternalClient
 // capable of managing resources in a real system.
-func NewReconciler(m manager.Manager, of resource.ManagedKind, o ...ReconcilerOption) *Reconciler {
-	nm := func() resource.Managed {
-		return resource.MustCreateObject(schema.GroupVersionKind(of), m.GetScheme()).(resource.Managed)
-	}
-
-	// Panic early if we've been asked to reconcile a resource kind that has not
-	// been registered with our controller manager's scheme.
-	_ = nm()
-
+func NewReconciler(m manager.Manager, of resource.ManagedKind, nm func() resource.Managed, o ...ReconcilerOption) *Reconciler {
 	r := &Reconciler{
 		client:     m.GetClient(),
 		newManaged: nm,

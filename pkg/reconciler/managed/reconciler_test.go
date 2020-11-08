@@ -782,7 +782,9 @@ func TestReconciler(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			r := NewReconciler(tc.args.m, tc.args.mg, tc.args.o...)
+			r := NewReconciler(tc.args.m, tc.args.mg, func() resource.Managed {
+				return resource.MustCreateObject(schema.GroupVersionKind(tc.args.mg), tc.args.m.GetScheme()).(resource.Managed)
+			}, tc.args.o...)
 			got, err := r.Reconcile(reconcile.Request{})
 
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
